@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxsc="https://microsoft.com/Soundscape" xmlns:gpxtpx="https://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="https://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" version="1.1" creator="Microsoft Soundscape Authoring Tool">
+  <metadata>
+    <name>Actividad de prueba</name>
+    <desc>Descripción de actividad</desc>
+    <author>
+      <name>La empresa</name>
+      <email id="superadmin" domain="email.com" />
+    </author>
+    <time>2025-08-14T01:18:43.105401Z</time>
+    <extensions>
+      <gpxsc:meta start="2025-08-12T22:05:00Z" expires="false">
+        <gpxsc:id>86472aaa-8be7-4b73-9084-990947fe406a</gpxsc:id>
+        <gpxsc:locale>en_US</gpxsc:locale>
+        <gpxsc:behavior>GuidedTour</gpxsc:behavior>
+        <gpxsc:version>2</gpxsc:version>
+      </gpxsc:meta>
+    </extensions>
+  </metadata>
+  <rte>
+    <rtept lat="-31.365930" lon="-64.349852">
+      <name>Casa</name>
+      <desc>Descripción del Waypoint</desc>
+      <extensions>
+        <gpxsc:annotations>
+          <gpxsc:annotation type="departure">Departure Callout</gpxsc:annotation>
+          <gpxsc:annotation type="arrival">Arrival Callout</gpxsc:annotation>
+        </gpxsc:annotations>
+        <gpxsc:links>
+          <gpxsc:link href="/files/activities/86472aaa-8be7-4b73-9084-990947fe406a/waypoints_media/be46c868-5414-4313-8e3e-_Q615eF9.m4a">
+            <text>Audio description</text>
+            <type>audio/x-m4a</type>
+          </gpxsc:link>
+        </gpxsc:links>
+      </extensions>
+    </rtept>
+    <rtept lat="-31.365877" lon="-64.349622">
+      <name>Waypoint cerquita 1</name>
+      <desc>Description</desc>
+      <extensions>
+        <gpxsc:annotations>
+          <gpxsc:annotation type="departure">Departure Callout</gpxsc:annotation>
+          <gpxsc:annotation type="arrival">asdsa</gpxsc:annotation>
+        </gpxsc:annotations>
+      </extensions>
+    </rtept>
+  </rte>
+</gpx>
