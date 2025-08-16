@@ -4,6 +4,14 @@
 #   $ docker-compose up -d
 # to create a superuser:
 #   $ docker-compose exec web /venv/bin/python manage.py createsuperuser
+# to stop and remove containers:
+#   $ docker-compose down
+# to list images:
+# docker images
+# to delete the images:
+# docker rmi authoring-tool-web:latest
+# to remove all unused images, not just dangling ones:
+# docker system prune -a
 
 volumes:
   data:
@@ -12,7 +20,7 @@ services:
   web:
     build: ./
     ports:
-      - 127.0.0.1:${LOCALHOST_PORT}:8000
+      - "${LOCALHOST_PORT}:8000"
     env_file:
       - ./.env
     volumes:
