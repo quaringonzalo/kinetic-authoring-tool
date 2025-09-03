@@ -13,6 +13,9 @@
 # to remove all unused images, not just dangling ones:
 # docker system prune -a
 
+# Rebuild del proyecto web
+# docker-compose build web && docker-compose up -d web
+
 volumes:
   data:
   
@@ -20,7 +23,7 @@ services:
   files:
     image: nginx:alpine
     ports:
-      - "8001:80"
+      - "8001:8001"
     volumes:
       - ${FILES_DIR}:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

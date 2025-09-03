@@ -2,8 +2,13 @@
 set -e
 
 #create a user and group in the container to access the bind mount from the host
-groupadd -g ${PGID} user
-useradd -u ${PUID} -g user user
+if ! getent group user > /dev/null 2>&1; then
+    groupadd -g ${PGID} user
+fi
+
+if ! getent passwd user > /dev/null 2>&1; then
+    useradd -u ${PUID} -g user user
+fi
 
 # Create the application directory
 # mkdir -p /app/frontend/serve/root
