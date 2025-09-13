@@ -18,7 +18,7 @@
 
 volumes:
   data:
-  
+
 services:
   files:
     image: nginx:alpine
@@ -34,6 +34,8 @@ services:
       - "${LOCALHOST_PORT}:8000"
     env_file:
       - ./.env
+    environment:
+      - AZURE_MAPS_SUBSCRIPTION_KEY=${AZURE_MAPS_SUBSCRIPTION_KEY}
     volumes:
       - ${FILES_DIR}:/app/backend/files
     depends_on:
