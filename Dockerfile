@@ -18,9 +18,7 @@ RUN npm ci &&\
 FROM python:3.12-slim-bookworm as backend-deps
 ENV PYTHONUNBUFFERED=1
 COPY backend/requirements.txt /app/requirements.txt
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update &&\
+RUN apt-get update &&\
     apt-get --no-install-recommends install gcc libpq-dev zlib1g-dev libjpeg-dev -y
 RUN python -m venv /venv &&\
     /venv/bin/pip install --upgrade pip &&\
@@ -29,9 +27,7 @@ RUN python -m venv /venv &&\
 # -- Final image    
 
 FROM python:3.12-slim-bookworm as final
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update &&\
+RUN apt-get update &&\
     apt-get --no-install-recommends install libpq5 zlib1g libjpeg62-turbo gosu -y
 
 COPY --from=backend-deps /venv /venv
