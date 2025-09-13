@@ -31,6 +31,9 @@ urlpatterns = [
     # Serve API app
     path('api/', include('api.urls')),
 
+    # Serve map app
+    path('map/', include('map.urls')),
+
     # Serve frontend app
     path('', include('frontend.urls')),
 ]
