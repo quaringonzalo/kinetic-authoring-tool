@@ -1,6 +1,6 @@
 # Soundscape Authoring Tool
 
-<!-- PROJECT LOGO -->
+<!-- PROJECT LOGO -->º
 <br />
 <div align="center">
   <a href="">
@@ -34,26 +34,34 @@
 </details>
 
 <!-- ABOUT THE PROJECT -->
+
 ## About The Project
+
 Soundscape Authoring Tool is a web app which allows users to create routed activities for use with the Soundscape iOS app.
 
 ### Built With
+
 <!-- https://dev.to/envoy_/150-badges-for-github-pnk -->
+
 #### Frontend
-* [![JavaScript]][JavaScript-url] 
-* [![React][React.js]][React-url]
-* [![Bootstrap]][Bootstrap-url]
-* [![Tailwind CSS]][Tailwind-url]
+
+- [![JavaScript]][JavaScript-url]
+- [![React][React.js]][React-url]
+- [![Bootstrap]][Bootstrap-url]
+- [![Tailwind CSS]][Tailwind-url]
 
 #### Backend
-* [![Python][Python]][Python-url]
-* [![Django][Django]][Django-url]
+
+- [![Python][Python]][Python-url]
+- [![Django][Django]][Django-url]
 
 <!-- GETTING STARTED -->
-## Getting Started
-* [See Installation Guide](./install.md)
 
-* [Exporting from the Authoring Web App](./exporting.md)
+## Getting Started
+
+- [See Installation Guide](./install.md)
+
+- [Exporting from the Authoring Web App](./exporting.md)
 
 ### GitHub Codespaces on the web
 
@@ -83,20 +91,21 @@ For now, make sure you choose the rd-devcontainer branch when opening the codesp
 Once the codespace is ready, follow the same steps as above to start the development server.
 
 <!-- CONTRIBUTING -->
+
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Follow these instructions to submit your contributions to the project. 
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Follow these instructions to submit your contributions to the project.
 
 1. Branch the Project
-3. Commit your Changes (`git commit -a -m 'Your Feature's commit message'`)
-4. Push to the right Branch (`git push origin branch_you_commit_to`)
-5. Open a Pull Request
+2. Commit your Changes (`git commit -a -m 'Your Feature's commit message'`)
+3. Push to the right Branch (`git push origin branch_you_commit_to`)
+4. Open a Pull Request
 
 <!-- LICENSE -->
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](./LICENSE) for more information.
-
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
