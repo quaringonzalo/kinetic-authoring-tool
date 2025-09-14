@@ -1,0 +1,151 @@
+# This container setup provisions a PostGIS server, downloads and ingests OSM
+# data for Washington, DC, and runs a Soundscape GeoJSON tile server.
+#
+# the following variables can be set in .env:
+# GEN_REGIONS: set to any location listed in extracts.json, or add new ones
+# from the available downloads at http://download.geofabrik.de/
+# LOOP_TIME: The time between database updates in seconds.
+#
+# To run:
+#   $ docker-compose up --build
+# # Para California (será mucho más lento, archivo grande)
+# GEN_REGIONS=california docker-compose up --build
+
+# # Para Toronto
+# GEN_REGIONS=toronto docker-compose up --build
+
+# # Para Londres
+# GEN_REGIONS=england docker-compose up --build
+#
+# Once all three components are running (PostGIS server, ingest service, tile
+# server), test by fetching a tile in your browser, e.g.:
+#   http://localhost:8081/16/18745/25070.json
+#
+# Helpful tool for finding other tile coordinates (the last two numbers in the
+# above URL): http://bboxfinder.com/
+
+# There are two tilesrv services defined, tilesrv-blue and tilesrv-green to
+# allow for updates without downtime. tilesrv-blue is started by default.
+#
+# To update:
+# docker compose up --build -d tilesrv-green
+# Test tilesrv-green on localhost:8082
+# switch Caddy config:
+# sudo ln -sf /etc/caddy/Caddyfile.green /etc/caddy/Caddyfile
+# sudo systemctl reload caddy
+# if everything works, bring down tilesrv-blue:
+# docker compose stop tilesrv-blue
+# docker compose rm tilesrv-blue
+#
+# For the next update swap blue and green in the instructions above.
+version: "3.8"
+
+volumes:
+  postgis:
+  tiles:
+
+services:
+  postgis:
+    image: postgis/postgis
+    platform: linux/amd64
+    user: postgres
+    restart: unless-stopped # ✅ AUTO-INICIO AGREGADO
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - PGUSER=postgres
+    volumes:
+      - postgis:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # TODO: Remover al desplegar
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # ✅ Tiempo extra al iniciar
+
+  ingest:
+    image: soundscape/ingest
+    platform: linux/amd64
+    restart: unless-stopped # ✅ AUTO-INICIO AGREGADO
+    build:
+      dockerfile: Dockerfile.ingest
+    environment:
+      - GEN_REGIONS=${GEN_REGIONS:-district-of-columbia}
+      - LOOP_TIME=${LOOP_TIME:-14400}
+      - NAMESPACE=soundscape
+      - POSTGIS_HOST=postgis
+      - POSTGIS_PORT=5432
+      - POSTGIS_USER=postgres
+      - POSTGIS_PASSWORD=secret
+      - POSTGIS_DBNAME=osm
+    volumes:
+      - tiles:/tiles
+      - ./non_osm_data:/non_osm_data
+    # You only need to expose the port from this container if you want to
+    # view the Prometheus metrics endpoint from your browser, accessible at
+    # http://localhost:8083/
+    ports:
+      - "127.0.0.1:8083:8083"
+    depends_on:
+      postgis:
+        condition: service_healthy
+        restart: true # ✅ Reiniciar si postgis se reinicia
+
+  tilesrv-blue:
+    image: soundscape/tilesrv
+    restart: unless-stopped # ✅ AUTO-INICIO AGREGADO
+    build:
+      dockerfile: Dockerfile.tilesrv
+    environment:
+      - DSN=host=postgis port=5432 dbname=osm user=postgres password=secret
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      postgis:
+        condition: service_healthy
+        restart: true # ✅ Reiniciar si postgis se reinicia
+    healthcheck: # ✅ HEALTHCHECK AGREGADO
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  tilesrv-green:
+    image: soundscape/tilesrv
+    restart: unless-stopped # ✅ AUTO-INICIO AGREGADO
+    build:
+      dockerfile: Dockerfile.tilesrv
+    environment:
+      - DSN=host=postgis port=5432 dbname=osm user=postgres password=secret
+    ports:
+      - "127.0.0.1:8082:8080"
+    depends_on:
+      postgis:
+        condition: service_healthy
+        restart: true # ✅ Reiniciar si postgis se reinicia
+    healthcheck: # ✅ HEALTHCHECK AGREGADO
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # prevent tilesrv-green from starting automatically
+    profiles: ["tilesrv-green"]

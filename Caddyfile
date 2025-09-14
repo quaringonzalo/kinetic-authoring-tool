@@ -1,0 +1,170 @@
+# Caddyfile unificado para Soundscape Authoring Tool + Data Server
+# 
+# Este archivo maneja todas las rutas del proyecto:
+# - Frontend React
+# - Backend Django API  
+# - Servicio de archivos
+# - Tiles del data server
+# - Métricas de ingest
+#
+# Para desarrollo local: localhost
+# Para producción: cambiar por tu dominio
+
+{
+    # Configuración global
+    auto_https off
+    admin off
+}
+
+# Configuración CORS reutilizable
+(cors) {
+  @origin{args.0} header Origin {args.0}
+  header @origin{args.0} Access-Control-Allow-Origin "{args.0}"
+  header @origin{args.0} Vary Origin
+  header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+  header Access-Control-Allow-Headers "*"
+  
+  # Handle preflight requests
+  @options method OPTIONS
+  handle @options {
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "*"
+    respond "" 204
+  }
+}
+
+localhost:80 {
+    # =============================================================================
+    # API BACKEND (Django)
+    # =============================================================================
+    handle_path /api/* {
+        reverse_proxy web:8000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+        import cors *
+    }
+
+    # =============================================================================
+    # ADMIN DJANGO  
+    # =============================================================================
+    handle_path /admin/* {
+        reverse_proxy web:8000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # =============================================================================
+    # STATIC FILES DJANGO
+    # =============================================================================
+    handle_path /static/* {
+        reverse_proxy web:8000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # =============================================================================
+    # ARCHIVOS (GPX, etc.) 
+    # =============================================================================
+    handle_path /files/* {
+        reverse_proxy files:80 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
+        import cors *
+    }
+
+    # =============================================================================
+    # TILES DEL DATA SERVER
+    # =============================================================================
+    handle_path /tiles/* {
+        uri strip_prefix /tiles
+        reverse_proxy tilesrv-blue:8080 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
+        import cors *
+    }
+
+    # =============================================================================
+    # MÉTRICAS DE INGEST (opcional, para monitoreo)
+    # =============================================================================
+    handle_path /metrics/* {
+        uri strip_prefix /metrics  
+        reverse_proxy ingest:8083 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # =============================================================================
+    # FRONTEND (React) - DEBE IR AL FINAL
+    # =============================================================================
+    handle /* {
+        # En desarrollo, el frontend estará en otro puerto
+        # En producción, servirás los archivos build estáticos
+        
+        # OPCIÓN 1: Para desarrollo con React dev server
+        # reverse_proxy frontend:3000 {
+        #     header_up Host {upstream_hostport}
+        #     header_up X-Real-IP {remote_host}
+        # }
+        
+        # OPCIÓN 2: Para producción con archivos estáticos build
+        root * /var/www/html
+        try_files {path} /index.html
+        file_server
+        
+        import cors *
+    }
+
+    # Configuración de errores y logs
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# =============================================================================
+# CONFIGURACIÓN PARA DOMINIOS DE PRODUCCIÓN (descomenta y modifica)
+# =============================================================================
+
+# tu-dominio.com {
+#     # Misma configuración que localhost pero con HTTPS automático
+#     handle_path /api/* {
+#         reverse_proxy web:8000
+#     }
+#     
+#     handle_path /files/* {
+#         reverse_proxy files:80
+#     }
+#     
+#     handle_path /tiles/* {
+#         uri strip_prefix /tiles
+#         reverse_proxy tilesrv-blue:8080
+#     }
+#     
+#     handle /* {
+#         root * /var/www/html
+#         try_files {path} /index.html
+#         file_server
+#     }
+#     
+#     import cors https://tu-frontend-domain.com
+#     
+#     # Headers de seguridad para producción
+#     header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+#     header X-Content-Type-Options nosniff
+#     header X-Frame-Options DENY
+#     header X-XSS-Protection "1; mode=block"
+# }
