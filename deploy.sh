@@ -5,7 +5,7 @@
 
 set -e
 
-COMPOSE_FILE="docker-compose.unified.yml"
+COMPOSE_FILE="docker-compose.yml"
 
 case "$1" in
     start)

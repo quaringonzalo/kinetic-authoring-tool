@@ -1,53 +1,64 @@
-#
-# To launch Postgres and web containers:
-#   Copy sample.env to .env and edit to set the environment variables
-#   $ docker-compose up -d --build
-# to create a superuser:
-#   $ docker-compose exec web /venv/bin/python manage.py createsuperuser
-# to stop and remove containers:
-#   $ docker-compose down
-# to list images:
-# docker images
-# to delete the images:
-# docker rmi authoring-tool-web:latest
-# to remove all unused images, not just dangling ones:
-# docker system prune -a
-
-# Rebuild del proyecto web
-# docker-compose build web && docker-compose up -d web
-
 volumes:
   data:
+  postgis:
+  tiles:
+  caddy_data:
+  caddy_config:
+
+networks:
+  soundscape-net:
+    driver: bridge
 
 services:
-  files:
-    image: nginx:alpine
+  # =============================================================================
+  # PROXY REVERSO - CADDY (Puerto único de entrada)
+  # =============================================================================
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ${FILES_DIR}:/usr/share/nginx/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    command: nginx-debug -g 'daemon off;'
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${FILES_DIR}:/srv:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - soundscape-net
+    depends_on:
+      - web
+
+  # =============================================================================
+  # AUTHORING TOOL SERVICES
+  # =============================================================================
   web:
     build: ./
-    ports:
-      - "${LOCALHOST_PORT}:8000"
+    restart: unless-stopped
+    expose:
+      - "8000"
     env_file:
       - ./.env
     environment:
       - AZURE_MAPS_SUBSCRIPTION_KEY=${AZURE_MAPS_SUBSCRIPTION_KEY}
+      - DATABASE_URL=postgresql://${PSQL_DB_USER:-postgres}:${PSQL_DB_PASS:-postgres}@postgres-authoring:5432/${PSQL_DB_NAME:-postgres}
     volumes:
       - ${FILES_DIR}:/app/backend/files
+    networks:
+      - soundscape-net
     depends_on:
-      postgres:
+      postgres-authoring:
         condition: service_healthy
 
-  postgres:
+  postgres-authoring:
     image: postgres:16-alpine
-    ports:
-      - 5432:5432
+    restart: unless-stopped
+    expose:
+      - "5432"
     volumes:
       - data:/var/lib/postgresql/data
+    networks:
+      - soundscape-net
     environment:
       - POSTGRES_USER=${PSQL_DB_USER:-postgres}
       - POSTGRES_PASSWORD=${PSQL_DB_PASS:-postgres}
@@ -57,3 +68,103 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # =============================================================================
+  # DATA SERVER SERVICES
+  # =============================================================================
+  postgres-tiles:
+    image: postgis/postgis
+    platform: linux/amd64
+    restart: unless-stopped
+    user: postgres
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - PGUSER=postgres
+    volumes:
+      - postgis:/var/lib/postgresql/data
+    networks:
+      - soundscape-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d soundscape"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tilesrv-blue:
+    image: soundscape/tilesrv
+    platform: linux/amd64
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
+    networks:
+      - soundscape-net
+    depends_on:
+      postgres-tiles:
+        condition: service_healthy
+    profiles:
+      - tilesrv
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tilesrv-green:
+    image: soundscape/tilesrv
+    platform: linux/amd64
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
+    networks:
+      - soundscape-net
+    depends_on:
+      postgres-tiles:
+        condition: service_healthy
+    profiles:
+      - tilesrv-green
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ingest:
+    image: soundscape/ingest
+    platform: linux/amd64
+    restart: unless-stopped
+    expose:
+      - "8083"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
+      - BBOX=${BBOX:-1.4071,42.428,1.7863,42.6559}
+      - TELEMETRY_LOG=${TELEMETRY_LOG:-true}
+    networks:
+      - soundscape-net
+    depends_on:
+      postgres-tiles:
+        condition: service_healthy
+    profiles:
+      - data-srv
+
+  # =============================================================================
+  # MONITORING
+  # =============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - soundscape-net
+    profiles:
+      - monitoring
