@@ -34,7 +34,7 @@
   }
 }
 
-localhost:80 {
+localhost:80, 31.97.119.80:80 {
     # =============================================================================
     # API BACKEND (Django)
     # =============================================================================
@@ -73,13 +73,11 @@ localhost:80 {
     }
 
     # =============================================================================
-    # ARCHIVOS (GPX, etc.) 
+    # ARCHIVOS (GPX, etc.) - Servidos directamente por Caddy
     # =============================================================================
-    handle_path /files/* {
-        reverse_proxy files:80 {
-            header_up Host {upstream_hostport}
-            header_up X-Real-IP {remote_host}
-        }
+    handle /files/* {
+        root * /srv
+        file_server browse
         import cors *
     }
 

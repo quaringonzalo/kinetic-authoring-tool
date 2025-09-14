@@ -23,11 +23,11 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - ${FILES_DIR}:/srv/files:ro
     networks:
       - soundscape-net
     depends_on:
       - web
-      - files
       - tilesrv-blue
 
   # =============================================================================
@@ -50,18 +50,6 @@ services:
     depends_on:
       postgres-authoring:
         condition: service_healthy
-
-  files:
-    image: nginx:alpine
-    restart: unless-stopped
-    expose:
-      - "80"
-    volumes:
-      - ${FILES_DIR}:/usr/share/nginx/html:ro
-      - ./nginx-files.conf:/etc/nginx/conf.d/default.conf:ro
-    networks:
-      - soundscape-net
-    command: nginx-debug -g 'daemon off;'
 
   postgres-authoring:
     image: postgres:16-alpine
@@ -134,7 +122,6 @@ services:
     depends_on:
       postgres-tiles:
         condition: service_healthy
-        restart: true
 
   tilesrv-blue:
     build:
@@ -151,7 +138,6 @@ services:
     depends_on:
       postgres-tiles:
         condition: service_healthy
-        restart: true
     healthcheck:
       test:
         [
@@ -182,7 +168,6 @@ services:
     depends_on:
       postgres-tiles:
         condition: service_healthy
-        restart: true
     healthcheck:
       test:
         [
