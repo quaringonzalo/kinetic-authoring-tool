@@ -110,20 +110,13 @@ localhost:80 {
     # FRONTEND (React) - DEBE IR AL FINAL
     # =============================================================================
     handle /* {
-        # En desarrollo, el frontend estará en otro puerto
-        # En producción, servirás los archivos build estáticos
-        
-        # OPCIÓN 1: Para desarrollo con React dev server
-        # reverse_proxy frontend:3000 {
-        #     header_up Host {upstream_hostport}
-        #     header_up X-Real-IP {remote_host}
-        # }
-        
-        # OPCIÓN 2: Para producción con archivos estáticos build
-        root * /var/www/html
-        try_files {path} /index.html
-        file_server
-        
+        # El frontend se sirve a través de Django desde el contenedor web
+        reverse_proxy web:8000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
         import cors *
     }
 
