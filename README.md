@@ -28,6 +28,18 @@
         <li><a href="#github-codespaces-in-vscode">GitHub Codespaces in VSCode</li>
       </ul>
     </li>
+    <li>
+      <a href="#deployment">Deployment</a>
+      <ul>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#quick-start">Quick Start</a></li>
+        <li><a href="#available-commands">Available Commands</a></li>
+        <li><a href="#environment-configuration">Environment Configuration</a></li>
+        <li><a href="#service-urls">Service URLs</a></li>
+        <li><a href="#production-deployment">Production Deployment</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
   </ol>
@@ -89,6 +101,122 @@ See [Using Codespaces in Visual Studio Code](https://docs.github.com/en/codespac
 For now, make sure you choose the rd-devcontainer branch when opening the codespace.
 
 Once the codespace is ready, follow the same steps as above to start the development server.
+
+<!-- DEPLOYMENT -->
+
+## Deployment
+
+The Soundscape Authoring Tool can be deployed using Docker Compose with a unified configuration that includes both the authoring tool and the data server.
+
+### 🏗️ Architecture
+
+The deployment uses Caddy as a reverse proxy to route traffic to different services:
+
+```
+Internet → Caddy (Port 80/443) → Internal Services
+                  ↓
+    ┌─────────────┼─────────────┐
+    │             │             │
+    │   /api/*    │  /files/*   │  /tiles/*
+    │     ↓       │     ↓       │     ↓
+    │  Django     │   Nginx     │  TileServer
+    │ (port 8000) │ (port 80)   │ (port 8080)
+    │     ↓       │             │     ↓
+    │ PostgreSQL  │             │ PostGIS
+    │ (port 5432) │             │ (port 5432)
+    └─────────────┴─────────────┴─────────────┘
+```
+
+### 🚀 Quick Start
+
+#### 1. Initial Setup
+
+```bash
+# Clone and configure
+git clone <repo>
+cd authoring-tool
+
+# Setup environment variables
+cp sample.env .env
+# Edit .env with your values
+
+# Initial setup (creates DBs and runs migrations)
+./deploy.sh setup
+```
+
+#### 2. Create Superuser
+
+```bash
+./deploy.sh superuser
+```
+
+#### 3. Start All Services
+
+```bash
+./deploy.sh start
+```
+
+Access the application at: `http://localhost`
+
+### 🛠️ Available Commands
+
+| Command                      | Description                                     |
+| ---------------------------- | ----------------------------------------------- |
+| `./deploy.sh start`          | Start all services                              |
+| `./deploy.sh stop`           | Stop all services                               |
+| `./deploy.sh restart`        | Restart services                                |
+| `./deploy.sh logs [service]` | View logs                                       |
+| `./deploy.sh status`         | Service status                                  |
+| `./deploy.sh setup`          | Initial project setup                           |
+| `./deploy.sh superuser`      | Create Django superuser                         |
+| `./deploy.sh clean`          | Clean containers and images                     |
+| `./deploy.sh switch-tiles`   | Switch to tilesrv-green (blue-green deployment) |
+
+### 🔧 Environment Configuration
+
+Key environment variables in `.env`:
+
+```bash
+# Django
+SECRET_KEY=your-very-secure-secret-key
+DEBUG=False
+ALLOWED_HOSTS=your-domain.com,localhost
+
+# Database
+PSQL_DB_USER=postgres
+PSQL_DB_PASS=secure-password
+PSQL_DB_NAME=authoring_tool
+
+# Azure Maps
+AZURE_MAPS_SUBSCRIPTION_KEY=your-key
+
+# Files
+FILES_DIR=/absolute/path/to/files
+```
+
+### 🌐 Service URLs
+
+- **Frontend**: `http://localhost/`
+- **API**: `http://localhost/api/activities/`
+- **Admin**: `http://localhost/admin/`
+- **Files**: `http://localhost/files/activity.gpx`
+- **Tiles**: `http://localhost/tiles/16/18745/25070.json`
+
+### 📊 Production Deployment
+
+For production deployment with a custom domain:
+
+1. Edit `Caddyfile` and uncomment the production section
+2. Replace `your-domain.com` with your actual domain
+3. Caddy will automatically handle SSL certificates
+
+### 🐛 Troubleshooting
+
+- **View logs**: `./deploy.sh logs [service-name]`
+- **Check status**: `./deploy.sh status`
+- **Clean restart**: `./deploy.sh clean && ./deploy.sh setup`
+
+For detailed deployment documentation, see [DEPLOY_README.md](./DEPLOY_README.md).
 
 <!-- CONTRIBUTING -->
 

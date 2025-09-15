@@ -21,13 +21,14 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ${FILES_DIR}:/srv:ro
       - caddy_data:/data
       - caddy_config:/config
+      - ${FILES_DIR}:/srv/files:ro
     networks:
       - soundscape-net
     depends_on:
       - web
+      - tilesrv-blue
 
   # =============================================================================
   # AUTHORING TOOL SERVICES
@@ -87,84 +88,99 @@ services:
     networks:
       - soundscape-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d soundscape"]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  tilesrv-blue:
-    image: soundscape/tilesrv
-    platform: linux/amd64
-    restart: unless-stopped
-    expose:
-      - "8080"
-    environment:
-      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
-    networks:
-      - soundscape-net
-    depends_on:
-      postgres-tiles:
-        condition: service_healthy
-    profiles:
-      - tilesrv
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  tilesrv-green:
-    image: soundscape/tilesrv
-    platform: linux/amd64
-    restart: unless-stopped
-    expose:
-      - "8080"
-    environment:
-      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
-    networks:
-      - soundscape-net
-    depends_on:
-      postgres-tiles:
-        condition: service_healthy
-    profiles:
-      - tilesrv-green
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      start_period: 30s
 
   ingest:
+    build:
+      context: ./data-srv
+      dockerfile: Dockerfile.ingest
     image: soundscape/ingest
     platform: linux/amd64
     restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - GEN_REGIONS=andorra
+      - LOOP_TIME=14400
+      - NAMESPACE=soundscape
+      - POSTGIS_HOST=postgres-tiles
+      - POSTGIS_PORT=5432
+      - POSTGIS_USER=postgres
+      - POSTGIS_PASSWORD=secret
+      - POSTGIS_DBNAME=osm
+    volumes:
+      - tiles:/tiles
+      - ./data-srv/non_osm_data:/non_osm_data
     expose:
       - "8083"
-    environment:
-      - DATABASE_URL=postgresql://postgres:secret@postgres-tiles/postgres
-      - BBOX=${BBOX:-1.4071,42.428,1.7863,42.6559}
-      - TELEMETRY_LOG=${TELEMETRY_LOG:-true}
     networks:
       - soundscape-net
     depends_on:
       postgres-tiles:
         condition: service_healthy
-    profiles:
-      - data-srv
 
-  # =============================================================================
-  # MONITORING
-  # =============================================================================
-  grafana:
-    image: grafana/grafana:latest
+  tilesrv-blue:
+    build:
+      context: ./data-srv
+      dockerfile: Dockerfile.tilesrv
+    image: soundscape/tilesrv
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - DSN=host=postgres-tiles port=5432 dbname=osm user=postgres password=secret
+    expose:
+      - "8080"
     networks:
       - soundscape-net
-    profiles:
-      - monitoring
+    depends_on:
+      postgres-tiles:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  tilesrv-green:
+    build:
+      context: ./data-srv
+      dockerfile: Dockerfile.tilesrv
+    image: soundscape/tilesrv
+    restart: unless-stopped
+    environment:
+      - DSN=host=postgres-tiles port=5432 dbname=osm user=postgres password=secret
+    expose:
+      - "8080"
+    networks:
+      - soundscape-net
+    depends_on:
+      postgres-tiles:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # prevent tilesrv-green from starting automatically
+    profiles: ["tilesrv-green"]
