@@ -117,14 +117,14 @@ Internet → Caddy (Port 80/443) → Internal Services
                   ↓
     ┌─────────────┼─────────────┐
     │             │             │
-    │   /api/*    │  /files/*   │  /tiles/*
-    │     ↓       │     ↓       │     ↓
-    │  Django     │   Nginx     │  TileServer
-    │ (port 8000) │ (port 80)   │ (port 8080)
-    │     ↓       │             │     ↓
-    │ PostgreSQL  │             │ PostGIS
-    │ (port 5432) │             │ (port 5432)
-    └─────────────┴─────────────┴─────────────┘
+    │   /api/*    │  /files/*   │  /tiles/*  /grafana/*
+    │     ↓       │     ↓       │     ↓         ↓
+    │  Django     │   Nginx     │  TileServer  Grafana
+    │ (port 8000) │ (port 80)   │ (port 8080) (port 3000)
+    │     ↓       │             │     ↓         ↓
+    │ PostgreSQL  │             │ PostGIS   Prometheus
+    │ (port 5432) │             │ (port 5432) (metrics)
+    └─────────────┴─────────────┴─────────────┴────────────┘
 ```
 
 ### 🚀 Quick Start
@@ -192,6 +192,10 @@ AZURE_MAPS_SUBSCRIPTION_KEY=your-key
 
 # Files
 FILES_DIR=/absolute/path/to/files
+
+# Grafana
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=admin
 ```
 
 ### 🌐 Service URLs
@@ -201,6 +205,8 @@ FILES_DIR=/absolute/path/to/files
 - **Admin**: `http://localhost/admin/`
 - **Files**: `http://localhost/files/activity.gpx`
 - **Tiles**: `http://localhost/tiles/16/18745/25070.json`
+- **Metrics**: `http://localhost/metrics/`
+- **Grafana**: `http://localhost/grafana/login` (admin/admin)
 
 ### 📊 Production Deployment
 

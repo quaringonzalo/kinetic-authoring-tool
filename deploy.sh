@@ -121,8 +121,23 @@ case "$1" in
         docker-compose -f $COMPOSE_FILE exec web python manage.py createsuperuser
         ;;
     
+    grafana)
+        echo "📊 Abriendo Grafana en el navegador..."
+        echo "URL: http://localhost/grafana/"
+        echo "Usuario: admin"
+        echo "Contraseña: admin"
+        echo ""
+        if command -v open &> /dev/null; then
+            open http://localhost/grafana/
+        elif command -v xdg-open &> /dev/null; then
+            xdg-open http://localhost/grafana/
+        else
+            echo "Abre manualmente: http://localhost/grafana/"
+        fi
+        ;;
+    
     *)
-        echo "Uso: $0 {start|stop|restart|logs|build|switch-tiles|status|clean|setup|superuser}"
+        echo "Uso: $0 {start|stop|restart|logs|build|switch-tiles|status|clean|setup|superuser|grafana}"
         echo ""
         echo "Comandos disponibles:"
         echo "  start        - Iniciar todos los servicios"
@@ -135,6 +150,7 @@ case "$1" in
         echo "  clean        - Limpiar contenedores e imágenes"
         echo "  setup        - Configuración inicial del proyecto"
         echo "  superuser    - Crear superusuario de Django"
+        echo "  grafana      - Abrir Grafana en el navegador"
         echo ""
         echo "Ejemplos:"
         echo "  $0 logs web              # Ver logs del servicio web"
