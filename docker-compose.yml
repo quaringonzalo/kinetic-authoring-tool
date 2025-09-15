@@ -4,7 +4,6 @@ volumes:
   tiles:
   caddy_data:
   caddy_config:
-  grafana_data:
 
 networks:
   soundscape-net:
@@ -29,8 +28,7 @@ services:
       - soundscape-net
     depends_on:
       - web
-      - tilesrv-blue
-      - grafana
+      - tilesrv
 
   # =============================================================================
   # AUTHORING TOOL SERVICES
@@ -125,30 +123,7 @@ services:
       postgres-tiles:
         condition: service_healthy
 
-  # =============================================================================
-  # MONITORING SERVICES
-  # =============================================================================
-  grafana:
-    image: grafana/grafana:latest
-    restart: unless-stopped
-    expose:
-      - "3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_SERVER_DOMAIN=localhost
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    networks:
-      - soundscape-net
-    depends_on:
-      - ingest
-
-  tilesrv-blue:
+  tilesrv:
     build:
       context: ./data-srv
       dockerfile: Dockerfile.tilesrv
@@ -177,35 +152,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  tilesrv-green:
-    build:
-      context: ./data-srv
-      dockerfile: Dockerfile.tilesrv
-    image: soundscape/tilesrv
-    restart: unless-stopped
-    environment:
-      - DSN=host=postgres-tiles port=5432 dbname=osm user=postgres password=secret
-    expose:
-      - "8080"
-    networks:
-      - soundscape-net
-    depends_on:
-      postgres-tiles:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/healthz",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    # prevent tilesrv-green from starting automatically
-    profiles: ["tilesrv-green"]

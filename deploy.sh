@@ -121,21 +121,6 @@ case "$1" in
         docker-compose -f $COMPOSE_FILE exec web python manage.py createsuperuser
         ;;
     
-    grafana)
-        echo "📊 Abriendo Grafana en el navegador..."
-        echo "URL: http://localhost/grafana/"
-        echo "Usuario: admin"
-        echo "Contraseña: admin"
-        echo ""
-        if command -v open &> /dev/null; then
-            open http://localhost/grafana/
-        elif command -v xdg-open &> /dev/null; then
-            xdg-open http://localhost/grafana/
-        else
-            echo "Abre manualmente: http://localhost/grafana/"
-        fi
-        ;;
-    
     *)
         echo "Uso: $0 {start|stop|restart|logs|build|switch-tiles|status|clean|setup|superuser|grafana}"
         echo ""

@@ -86,7 +86,7 @@ localhost:80, 31.97.119.80:80 {
     # =============================================================================
     handle_path /tiles/* {
         uri strip_prefix /tiles
-        reverse_proxy tilesrv-blue:8080 {
+        reverse_proxy tilesrv:8080 {
             header_up Host {upstream_hostport}
             header_up X-Real-IP {remote_host}
         }
@@ -94,25 +94,12 @@ localhost:80, 31.97.119.80:80 {
     }
 
     # =============================================================================
-    # MÉTRICAS DE INGEST (opcional, para monitoreo)
+    # MÉTRICAS DE TILE SERVER (para monitoreo con Prometheus)
     # =============================================================================
-    handle_path /metrics/* {
-        uri strip_prefix /metrics  
-        reverse_proxy ingest:8083 {
+    handle /metrics {
+        reverse_proxy tilesrv:8080 {
             header_up Host {upstream_hostport}
             header_up X-Real-IP {remote_host}
-        }
-    }
-
-    # =============================================================================
-    # GRAFANA DASHBOARD (para monitoreo y visualización)
-    # =============================================================================
-    handle /grafana* {
-        reverse_proxy grafana:3000 {
-            header_up Host {upstream_hostport}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 
