@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxsc="https://microsoft.com/Soundscape" xmlns:gpxtpx="https://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="https://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" version="1.1" creator="Microsoft Soundscape Authoring Tool">
+  <metadata>
+    <name>test</name>
+    <desc>test</desc>
+    <author>
+      <name>test</name>
+      <email id="quaringaston" domain="gmail.com" />
+    </author>
+    <time>2025-09-16T00:24:03.527717Z</time>
+    <extensions>
+      <gpxsc:meta start="2025-09-13T21:22:00Z" expires="false">
+        <gpxsc:id>7ae6c0ff-971b-4b0c-9a61-752986227079</gpxsc:id>
+        <gpxsc:locale>en_US</gpxsc:locale>
+        <gpxsc:behavior>GuidedTour</gpxsc:behavior>
+        <gpxsc:version>2</gpxsc:version>
+      </gpxsc:meta>
+    </extensions>
+  </metadata>
+  <rte>
+    <rtept lat="47.642008" lon="-122.141275">
+      <name>Waypoint 1</name>
+    </rtept>
+    <rtept lat="47.641401" lon="-122.141410">
+      <name>Waypoint 2</name>
+    </rtept>
+    <rtept lat="47.641433" lon="-122.142456">
+      <name>Waypoint 3</name>
+    </rtept>
+    <rtept lat="47.641462" lon="-122.143244">
+      <name>Waypoint 4</name>
+    </rtept>
+  </rte>
+</gpx>

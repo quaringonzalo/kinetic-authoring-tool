@@ -1,8 +1,8 @@
 # Caddyfile unificado para Soundscape Authoring Tool + Data Server
-# 
+#
 # Este archivo maneja todas las rutas del proyecto:
 # - Frontend React
-# - Backend Django API  
+# - Backend Django API
 # - Servicio de archivos
 # - Tiles del data server
 # - Métricas de ingest
@@ -23,7 +23,7 @@
   header @origin{args.0} Vary Origin
   header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
   header Access-Control-Allow-Headers "*"
-  
+
   # Handle preflight requests
   @options method OPTIONS
   handle @options {
@@ -38,7 +38,7 @@ localhost:80, 31.97.119.80:80 {
     # =============================================================================
     # API BACKEND (Django)
     # =============================================================================
-    handle_path /api/* {
+    handle /api/* {
         reverse_proxy web:8000 {
             header_up Host {upstream_hostport}
             header_up X-Real-IP {remote_host}
@@ -49,9 +49,9 @@ localhost:80, 31.97.119.80:80 {
     }
 
     # =============================================================================
-    # ADMIN DJANGO  
+    # ADMIN DJANGO
     # =============================================================================
-    handle_path /admin/* {
+    handle /admin/* {
         reverse_proxy web:8000 {
             header_up Host {upstream_hostport}
             header_up X-Real-IP {remote_host}
@@ -63,7 +63,7 @@ localhost:80, 31.97.119.80:80 {
     # =============================================================================
     # STATIC FILES DJANGO
     # =============================================================================
-    handle_path /static/* {
+    handle /static/* {
         reverse_proxy web:8000 {
             header_up Host {upstream_hostport}
             header_up X-Real-IP {remote_host}
@@ -134,24 +134,24 @@ localhost:80, 31.97.119.80:80 {
 #     handle_path /api/* {
 #         reverse_proxy web:8000
 #     }
-#     
+#
 #     handle_path /files/* {
 #         reverse_proxy files:80
 #     }
-#     
+#
 #     handle_path /tiles/* {
 #         uri strip_prefix /tiles
 #         reverse_proxy tilesrv-blue:8080
 #     }
-#     
+#
 #     handle /* {
 #         root * /var/www/html
 #         try_files {path} /index.html
 #         file_server
 #     }
-#     
+#
 #     import cors https://tu-frontend-domain.com
-#     
+#
 #     # Headers de seguridad para producción
 #     header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 #     header X-Content-Type-Options nosniff
