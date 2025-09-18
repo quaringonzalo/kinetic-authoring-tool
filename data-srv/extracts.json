@@ -5,6 +5,16 @@
     "bbox": [42.428492, 1.413112, 42.656043, 1.786542]
   },
   {
+    "name": "united-kingdom",
+    "url": "https://download.geofabrik.de/europe/united-kingdom-latest.osm.pbf",
+    "bbox": [-14.0155170858,49.674000191,2.0919040963,61.0610001282]
+  },
+  {
+    "name": "spain",
+    "url": "https://download.geofabrik.de/europe/spain-latest.osm.pbf",
+    "bbox": [-18.3936845139,27.433542854,4.5918881893,43.9933089721]
+  },
+  {
     "name": "argentina",
     "url": "https://download.geofabrik.de/south-america/argentina-latest.osm.pbf",
     "bbox": [-55.25, -73.58, -21.8, -53.63]

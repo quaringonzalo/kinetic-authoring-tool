@@ -294,3 +294,9 @@ The ingest service provides Prometheus metrics for monitoring:
 - Event duration tracking
 - Last event timestamps
 - Database connection status
+
+
+## Additional Resources
+- [OpenStreetMap](https://www.openstreetmap.org/)
+- [Geofabrik Downloads](https://download.geofabrik.de/)
+- [IMPOSM3 Documentation](https://imposm.org/docs/imposm3/latest/)

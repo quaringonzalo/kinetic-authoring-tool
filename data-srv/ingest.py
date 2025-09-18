@@ -102,26 +102,44 @@ def fetch_extract(config, url):
 
 def fetch_extracts(config, extracts):
     start = datetime.utcnow()
-    logger.info('Fetch extracts: START')
+    logger.info('Fetch extracts: START - Processing {0} regions'.format(len(extracts)))
     fetched = False
-    for e in extracts:
+    for i, e in enumerate(extracts, 1):
+        logger.info('Fetching region {0}/{1}: {2}'.format(i, len(extracts), e['name']))
         fetched_extract = fetch_extract(config, e['url'])
+        if fetched_extract:
+            logger.info('Region {0} downloaded successfully'.format(e['name']))
+        else:
+            logger.info('Region {0} already up to date'.format(e['name']))
         fetched = fetched or fetched_extract
-    logger.info('Fetch extracts: DONE')
+    elapsed = datetime.utcnow() - start
+    logger.info('Fetch extracts: DONE - {0} regions processed in {1}'.format(len(extracts), elapsed))
     end = datetime.utcnow()
     telemetry_log('fetch_extracts', start, end)
     return fetched
 
-def import_extract(config, pbf, cache, incremental):
-    logger.info('Import of {0} : START'.format(pbf))
+def import_extract(config, extract, incremental):
+    pbf = os.path.join(config.pbfdir, os.path.basename(extract['url']))
     start = datetime.utcnow()
-    imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-read', config.pbfdir + "/" + pbf, '-srid', '4326', cache, '-cachedir', config.cachedir]
+    logger.info('Import of {0} : START (region: {1})'.format(pbf, extract['name']))
+    
+    imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-read', pbf, '-cachedir', config.cachedir]
     if incremental:
         imposm_args.extend(['-diff', '-diffdir', config.diffdir])
+    
+    # Log the file size for context
+    try:
+        file_size = os.path.getsize(pbf)
+        file_size_mb = file_size / (1024 * 1024)
+        logger.info('Processing file size: {0:.2f} MB for region {1}'.format(file_size_mb, extract['name']))
+    except:
+        logger.info('File size unknown for region {0}'.format(extract['name']))
+    
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_extract', start, end)
-    logger.info('import of {0}: DONE'.format(pbf))
+    elapsed = end - start
+    logger.info('import of {0}: DONE (region: {1}, duration: {2})'.format(pbf, extract['name'], elapsed))
 
 def import_write(config, incremental):
     logger.info('writing of OSM tables: START')
@@ -147,8 +165,10 @@ def import_rotate(config, incremental):
     logger.info('Table rotation: DONE')
 
 def import_extracts(config, extracts, incremental):
+    logger.info('Import extracts: START - Processing {0} regions for database import'.format(len(extracts)))
     imported = {}
     for e, i in zip(extracts, range(len(extracts))):
+        logger.info('Processing extract {0}/{1}: {2}'.format(i+1, len(extracts), e['name']))
         if i == 0:
             cache = '-overwritecache'
         else:
@@ -320,11 +340,22 @@ def execute_kube_updatemodel(config):
 
     rescan_delay = 60
     initial_import = True
+    cycle_count = 0
+    
+    logger.info('Starting ingestion loop - delay between cycles: {0} seconds ({1} hours)'.format(config.delay, config.delay/3600))
+    logger.info('Configured regions: {0}'.format([e['name'] for e in osm_extracts]))
+    
     while True:
+        cycle_count += 1
+        cycle_start = datetime.utcnow()
+        logger.info('=== INGESTION CYCLE {0} START at {1} ==='.format(cycle_count, cycle_start.strftime('%Y-%m-%d %H:%M:%S UTC')))
+        
         fetch_delay = config.delay
         updated = fetch_extracts(config, osm_extracts)
         if config.always_update:
             updated = True
+
+        logger.info('Data update status: {0}'.format('NEW DATA AVAILABLE' if updated else 'NO UPDATES DETECTED'))
 
         while fetch_delay >= 0:
             execute_kube_updatemodel_provision_and_import(config, updated or initial_import)
@@ -334,8 +365,16 @@ def execute_kube_updatemodel(config):
             if config.dynamic_db:
                 execute_kube_sync_database_services(config)
 
+            if fetch_delay > 0:
+                next_check = datetime.utcnow() + datetime.timedelta(seconds=min(rescan_delay, fetch_delay))
+                logger.info('Waiting {0} seconds until next check (next check at {1})'.format(min(rescan_delay, fetch_delay), next_check.strftime('%Y-%m-%d %H:%M:%S UTC')))
+                
             time.sleep(rescan_delay)
             fetch_delay -= rescan_delay
+            
+        cycle_end = datetime.utcnow()
+        cycle_duration = cycle_end - cycle_start
+        logger.info('=== INGESTION CYCLE {0} COMPLETED in {1} ==='.format(cycle_count, cycle_duration))
         initial_import = False
 
 def telemetry_log(event_name, start, end, extra=None):
@@ -356,7 +395,13 @@ if args.where or args.sourceupdate:
     osm_extracts = json.load(extracts_f)
 
 if args.where:
+    logger = logging.getLogger()
+    logger.info('Filtering regions to process: {0}'.format(args.where))
+    original_count = len(osm_extracts)
     osm_extracts = list(filter(lambda e: e['name'] in args.where, osm_extracts))
+    logger.info('Available regions: {0} -> Selected regions: {1}'.format(original_count, len(osm_extracts)))
+    for extract in osm_extracts:
+        logger.info('Region configured: {0} -> {1}'.format(extract['name'], extract['url']))
 
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s:%(levelname)s:%(message)s')
