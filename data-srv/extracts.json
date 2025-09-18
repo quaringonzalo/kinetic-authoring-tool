@@ -5,6 +5,11 @@
     "bbox": [42.428492, 1.413112, 42.656043, 1.786542]
   },
   {
+    "name": "argentina",
+    "url": "https://download.geofabrik.de/south-america/argentina-latest.osm.pbf",
+    "bbox": [-55.25, -73.58, -21.8, -53.63]
+  },
+  {
     "name": "district-of-columbia",
     "url": "http://download.geofabrik.de/north-america/us/district-of-columbia-latest.osm.pbf",
     "bbox": [38.755422, -77.243156, 39.008247, -76.842155]

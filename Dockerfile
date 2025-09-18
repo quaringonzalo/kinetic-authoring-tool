@@ -1,6 +1,6 @@
 # To run:
-#   docker build . -t  authoring-tool 
-#   docker run -p 8000:8000 -it --rm authoring-tool 
+#   docker build . -t  authoring-tool
+#   docker run -p 8000:8000 -it --rm authoring-tool
 #   docker run --env-file .env -p 8000:8000 -it --rm authoring-tool
 
 # docker run --name auth-tool-postgres -e POSTGRES_PASSWORD=postgres -d postgres
@@ -21,10 +21,11 @@ COPY backend/requirements.txt /app/requirements.txt
 RUN apt-get update &&\
     apt-get --no-install-recommends install gcc libpq-dev zlib1g-dev libjpeg-dev -y
 RUN python -m venv /venv &&\
-    /venv/bin/pip install --upgrade pip &&\
-    /venv/bin/pip install wheel setuptools gunicorn -r /app/requirements.txt
+    /venv/bin/pip install --upgrade pip setuptools wheel &&\
+    /venv/bin/pip install gunicorn &&\
+    /venv/bin/pip install -r /app/requirements.txt
 
-# -- Final image    
+# -- Final image
 
 FROM python:3.12-slim-bookworm as final
 RUN apt-get update &&\

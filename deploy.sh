@@ -118,7 +118,7 @@ case "$1" in
     
     superuser)
         echo "👤 Creando superusuario..."
-        docker-compose -f $COMPOSE_FILE exec web python manage.py createsuperuser
+        docker-compose -f $COMPOSE_FILE exec web /venv/bin/python manage.py createsuperuser
         ;;
     
     *)

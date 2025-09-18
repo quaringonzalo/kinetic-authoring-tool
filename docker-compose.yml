@@ -104,8 +104,8 @@ services:
     env_file:
       - ./.env
     environment:
-      - GEN_REGIONS=andorra
-      - LOOP_TIME=14400
+      - GEN_REGIONS=${GEN_REGIONS}
+      - LOOP_TIME=${LOOP_TIME}
       - NAMESPACE=soundscape
       - POSTGIS_HOST=postgres-tiles
       - POSTGIS_PORT=5432
