@@ -89,8 +89,19 @@ def fetch_extract(config, url):
         before_token = None
 
     try:
-        subprocess.run(['wget', '-N', url, '--directory-prefix', config.pbfdir], check=True)
+        # Get file size before download for logging
+        try:
+            existing_size = os.path.getsize(local_pbf)
+            logger.info('Existing file size: {0} bytes'.format(existing_size))
+        except FileNotFoundError:
+            logger.info('File does not exist, downloading fresh copy')
+        
+        subprocess.run(['wget', '-N', '-q', url, '--directory-prefix', config.pbfdir], check=True)
         after_token = os.path.getmtime(local_pbf)
+        
+        # Log file size after download
+        new_size = os.path.getsize(local_pbf)
+        logger.info('Downloaded file size: {0} bytes ({1:.1f} MB)'.format(new_size, new_size/1024/1024))
     except Exception:
         raise
 
