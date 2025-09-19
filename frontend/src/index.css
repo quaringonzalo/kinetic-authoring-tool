@@ -27,7 +27,7 @@ body {
 }
 
 .navbar {
-  background-color: #253d62;
+  background-color: #011D56;
 }
 
 .main {
@@ -56,7 +56,7 @@ body {
 }
 
 .footer {
-  background-color: #253d62;
+  background-color: #011D56;
   color: darkgray;
 }
 
@@ -67,4 +67,54 @@ body {
 
 .footer > div > a:hover {
   text-decoration: underline;
+}
+
+/* Override Bootstrap buttons with default #0d6efd color */
+.btn-primary,
+.btn-outline-primary,
+.btn-link,
+.text-primary,
+.link-primary,
+.border-primary {
+  background-color: #1557C7 !important;
+  border-color: #1557C7 !important;
+  color: white !important;
+}
+
+.btn-primary:hover,
+.btn-outline-primary:hover,
+.btn-link:hover,
+.text-primary:hover,
+.link-primary:hover {
+  background-color: #0f4aa6 !important;
+  border-color: #0f4aa6 !important;
+  color: white !important;
+}
+
+.btn-primary:focus, .btn-primary.focus,
+.btn-outline-primary:focus, .btn-outline-primary.focus,
+.btn-link:focus, .btn-link.focus {
+  background-color: #0f4aa6 !important;
+  border-color: #0f4aa6 !important;
+  color: white !important;
+  box-shadow: 0 0 0 0.2rem rgba(21, 87, 199, 0.5) !important;
+}
+
+.btn-primary:active, .btn-primary.active,
+.btn-outline-primary:active, .btn-outline-primary.active,
+.btn-link:active, .btn-link.active {
+  background-color: #0d3f85 !important;
+  border-color: #0d3f85 !important;
+  color: white !important;
+}
+
+/* Special handling for outline buttons */
+.btn-outline-primary {
+  background-color: transparent !important;
+  color: #1557C7 !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: #1557C7 !important;
+  color: white !important;
 }
