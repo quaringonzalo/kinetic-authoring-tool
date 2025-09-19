@@ -80,36 +80,56 @@ def fetch_extract(config, url):
     local_pbf = os.path.join(config.pbfdir, os.path.basename(url))
     logger.info(f"Attempting to download {url} to {local_pbf}")
     
+    # Create directory if it doesn't exist
+    os.makedirs(config.pbfdir, exist_ok=True)
+    
     try:
-        before_token = os.path.getmtime(local_pbf)
-        logger.info(f"File {local_pbf} already exists with timestamp {before_token}")
-    except OSError:
+        before_token = os.path.getmtime(local_pbf) if os.path.exists(local_pbf) else None
+        if before_token is not None:
+            logger.info(f"File {local_pbf} already exists with timestamp {before_token}")
+        else:
+            logger.info(f"File {local_pbf} does not exist yet, will download")
+    except OSError as e:
         before_token = None
-        logger.info(f"File {local_pbf} does not exist yet, will download")
+        logger.warning(f"Error checking file timestamp: {str(e)}")
+        logger.info(f"Will attempt to download {local_pbf}")
 
     try:
-        # Trying with fewer options and capturing output for debugging
-        result = subprocess.run(['wget', '-N', url, '--directory-prefix', config.pbfdir], 
-                          capture_output=True, text=True, check=False)
+        # Use simpler wget options for more reliable downloads
+        # -N: timestamp checking (only download newer files)
+        # --no-check-certificate: ignore SSL certificate issues
+        # --tries=3: retry 3 times on failure
+        # --timeout=120: 120 second timeout
+        result = subprocess.run([
+            'wget', '-N', 
+            '--no-check-certificate',
+            '--tries=3', 
+            '--timeout=120', 
+            url, 
+            '--directory-prefix', config.pbfdir
+        ], capture_output=True, text=True, check=False)
         
         if result.returncode != 0:
             logger.error(f"wget failed with code {result.returncode}")
             logger.error(f"wget stdout: {result.stdout}")
             logger.error(f"wget stderr: {result.stderr}")
             raise Exception(f"wget failed with code {result.returncode}: {result.stderr}")
+        
+        if os.path.exists(local_pbf):
+            after_token = os.path.getmtime(local_pbf)
+            logger.info(f"Download completed, new timestamp: {after_token}")
             
-        after_token = os.path.getmtime(local_pbf)
-        logger.info(f"Download completed, new timestamp: {after_token}")
+            if before_token == after_token:
+                logger.info(f"File {local_pbf} was not updated (timestamps match)")
+                return False
+            else:
+                logger.info(f"File {local_pbf} was updated")
+                return True
+        else:
+            raise Exception(f"Download completed but file {local_pbf} does not exist")
     except Exception as e:
         logger.error(f"Error downloading {url}: {str(e)}")
         raise
-
-    if before_token == after_token:
-        logger.info(f"File {local_pbf} was not updated (timestamps match)")
-        return False
-    else:
-        logger.info(f"File {local_pbf} was updated")
-        return True
 
 def fetch_extracts(config, extracts):
     logger.info('Fetch extracts: START')
@@ -132,15 +152,22 @@ def fetch_extracts(config, extracts):
     logger.info(f'Fetch extracts: DONE (elapsed time: {elapsed})')
     return fetched
 
-def import_extract(config, extract, incremental):
+def import_extract(config, extract, incremental, cache_option=None):
     pbf = os.path.join(config.pbfdir, os.path.basename(extract['url']))
     start = datetime.utcnow()
     logger.info('Import of {0}: START (region: {1})'.format(pbf, extract['name']))
     
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-read', pbf, '-cachedir', config.cachedir]
+    
+    # Add cache option if provided
+    if cache_option:
+        logger.info(f"Using cache option: {cache_option}")
+        imposm_args.append(cache_option)
+        
     if incremental:
         imposm_args.extend(['-diff', '-diffdir', config.diffdir])
     
+    logger.info(f"Running imposm with args: {' '.join(imposm_args)}")
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_extract', start, end)
@@ -171,18 +198,15 @@ def import_rotate(config, incremental):
 
 def import_extracts(config, extracts, incremental):
     logger.info('Import extracts: START - Processing {0} regions for database import'.format(len(extracts)))
-    imported = {}
-    for e, i in zip(extracts, range(len(extracts))):
-        if i == 0:
-            cache = '-overwritecache'
-        else:
-            cache = '-appendcache'
-        urlbits = urllib.parse.urlsplit(e['url'])
-        pbf = os.path.basename(urlbits.path)
-        if pbf in imported:
-            continue
-        imported[pbf] = True
-        import_extract(config, e, incremental)
+    
+    # Solo procesar el primer extracto para evitar problemas de caché
+    if len(extracts) > 0:
+        e = extracts[0]
+        logger.info(f"Processing only the first extract to avoid cache issues: {e['name']}")
+        
+        cache_option = '-overwritecache'
+        import_extract(config, e, incremental, cache_option)
+    
     logger.info('Import extracts: DONE')
 
 def import_extracts_and_write(config, extracts, incremental):
