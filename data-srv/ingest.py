@@ -78,26 +78,37 @@ def fetch_extract(config, url):
     #
 
     local_pbf = os.path.join(config.pbfdir, os.path.basename(url))
-
+    logger.info(f"Attempting to download {url} to {local_pbf}")
+    
     try:
         before_token = os.path.getmtime(local_pbf)
+        logger.info(f"File {local_pbf} already exists with timestamp {before_token}")
     except OSError:
         before_token = None
+        logger.info(f"File {local_pbf} does not exist yet, will download")
 
     try:
-        # Use subprocess with DEVNULL to completely suppress wget output
-        # -nv: no verbose, -N: timestamp checking, -q: quiet mode
-        with open(os.devnull, 'w') as devnull:
-            subprocess.run(['wget', '-nv', '-N', '-q', '--no-progress', '--no-verbose', url, '--directory-prefix', config.pbfdir], 
-                          stdout=devnull, stderr=devnull, check=True, env={"PYTHONUNBUFFERED": "0"})
+        # Trying with fewer options and capturing output for debugging
+        result = subprocess.run(['wget', '-N', url, '--directory-prefix', config.pbfdir], 
+                          capture_output=True, text=True, check=False)
+        
+        if result.returncode != 0:
+            logger.error(f"wget failed with code {result.returncode}")
+            logger.error(f"wget stdout: {result.stdout}")
+            logger.error(f"wget stderr: {result.stderr}")
+            raise Exception(f"wget failed with code {result.returncode}: {result.stderr}")
+            
         after_token = os.path.getmtime(local_pbf)
+        logger.info(f"Download completed, new timestamp: {after_token}")
     except Exception as e:
-        logger.warning(f"Error downloading {url}: {str(e)}")
+        logger.error(f"Error downloading {url}: {str(e)}")
         raise
 
     if before_token == after_token:
+        logger.info(f"File {local_pbf} was not updated (timestamps match)")
         return False
     else:
+        logger.info(f"File {local_pbf} was updated")
         return True
 
 def fetch_extracts(config, extracts):
