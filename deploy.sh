@@ -110,7 +110,7 @@ case "$1" in
         
         # Ejecutar migraciones
         echo "🔄 Ejecutando migraciones de Django..."
-        docker-compose -f $COMPOSE_FILE exec web python manage.py migrate
+        docker-compose -f $COMPOSE_FILE exec web /venv/bin/python manage.py migrate
         
         echo "✅ Configuración inicial completada"
         echo "💡 Para crear un superusuario: ./deploy.sh superuser"
@@ -118,7 +118,7 @@ case "$1" in
     
     superuser)
         echo "👤 Creando superusuario..."
-        docker-compose -f $COMPOSE_FILE exec web python manage.py createsuperuser
+        docker-compose -f $COMPOSE_FILE exec web /venv/bin/python manage.py createsuperuser
         ;;
     
     *)
