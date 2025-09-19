@@ -24,7 +24,7 @@ export default function NavigationBar({ presentingDetail, onActivitiesShow }) {
                 aria-hidden="true"
             />
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '35px' , fontSize: '1.35rem'}}>
-                Authoring Tool
+                Seva Authoring
             </div>
         </Navbar.Brand>
         {presentingDetail && <Navbar.Toggle aria-controls="responsive-navbar-nav" />}
