@@ -66,16 +66,12 @@ parser.add_argument('--always_update', action='store_true', default=False)
 parser.add_argument('--verbose', action='store_true', help='verbose')
 
 def update_imposmauto(config):
-    logger.info('Incremental update - STARTED')
     subprocess.run([config.imposm, 'run', '-config', config.config, '-mapping', config.mapping, '-connection', config.dsn, '-srid', '4326', '-cachedir', config.cachedir, '-diffdir', config.diffdir, '-expiretiles-dir', config.expiredir, '-expiretiles-zoom', '16'], check=True)
-    logger.info('Incremental update - DONE')
 
 def fetch_extract(config, url):
     #
     # a local PBF may already be present
     #
-
-    logger.info('Fetching {0}'.format(url))
 
     #
     # N.B. wget won't overwrite data unless it's in timestamp mode
@@ -89,23 +85,14 @@ def fetch_extract(config, url):
         before_token = None
 
     try:
-        # Get file size before download for logging
-        try:
-            existing_size = os.path.getsize(local_pbf)
-            logger.info('Existing file size: {0} bytes'.format(existing_size))
-        except FileNotFoundError:
-            logger.info('File does not exist, downloading fresh copy')
-        
-        subprocess.run(['wget', '-N', '-q', url, '--directory-prefix', config.pbfdir], check=True)
+        # Use subprocess with DEVNULL to completely suppress wget output
+        with open(os.devnull, 'w') as devnull:
+            subprocess.run(['wget', '-N', '-q', url, '--directory-prefix', config.pbfdir], 
+                          stdout=devnull, stderr=devnull, check=True)
         after_token = os.path.getmtime(local_pbf)
-        
-        # Log file size after download
-        new_size = os.path.getsize(local_pbf)
-        logger.info('Downloaded file size: {0} bytes ({1:.1f} MB)'.format(new_size, new_size/1024/1024))
     except Exception:
         raise
 
-    logger.info('Fetching {0}: DONE'.format(url))
     if before_token == after_token:
         return False
     else:
@@ -113,18 +100,15 @@ def fetch_extract(config, url):
 
 def fetch_extracts(config, extracts):
     start = datetime.utcnow()
-    logger.info('Fetch extracts: START - Processing {0} regions'.format(len(extracts)))
     fetched = False
     for i, e in enumerate(extracts, 1):
-        logger.info('Fetching region {0}/{1}: {2}'.format(i, len(extracts), e['name']))
         fetched_extract = fetch_extract(config, e['url'])
         if fetched_extract:
-            logger.info('Region {0} downloaded successfully'.format(e['name']))
+            pass
         else:
-            logger.info('Region {0} already up to date'.format(e['name']))
+            pass
         fetched = fetched or fetched_extract
     elapsed = datetime.utcnow() - start
-    logger.info('Fetch extracts: DONE - {0} regions processed in {1}'.format(len(extracts), elapsed))
     end = datetime.utcnow()
     telemetry_log('fetch_extracts', start, end)
     return fetched
@@ -132,28 +116,16 @@ def fetch_extracts(config, extracts):
 def import_extract(config, extract, incremental):
     pbf = os.path.join(config.pbfdir, os.path.basename(extract['url']))
     start = datetime.utcnow()
-    logger.info('Import of {0} : START (region: {1})'.format(pbf, extract['name']))
     
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-read', pbf, '-cachedir', config.cachedir]
     if incremental:
         imposm_args.extend(['-diff', '-diffdir', config.diffdir])
     
-    # Log the file size for context
-    try:
-        file_size = os.path.getsize(pbf)
-        file_size_mb = file_size / (1024 * 1024)
-        logger.info('Processing file size: {0:.2f} MB for region {1}'.format(file_size_mb, extract['name']))
-    except:
-        logger.info('File size unknown for region {0}'.format(extract['name']))
-    
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_extract', start, end)
-    elapsed = end - start
-    logger.info('import of {0}: DONE (region: {1}, duration: {2})'.format(pbf, extract['name'], elapsed))
 
 def import_write(config, incremental):
-    logger.info('writing of OSM tables: START')
     start = datetime.utcnow()
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-write', '-connection', config.dsn, '-srid', '4326', '-cachedir', config.cachedir]
     if incremental:
@@ -161,10 +133,8 @@ def import_write(config, incremental):
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_write', start, end, {'dsn': config.dsn})
-    logger.info('Write of OSM tables: DONE')
 
 def import_rotate(config, incremental):
-    logger.info('Table rotation: START')
     start = datetime.utcnow()
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-connection', config.dsn, '-srid', '4326', '-deployproduction', '-cachedir', config.cachedir]
 
@@ -173,13 +143,10 @@ def import_rotate(config, incremental):
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_rotate', start, end, {'dsn': config.dsn})
-    logger.info('Table rotation: DONE')
 
 def import_extracts(config, extracts, incremental):
-    logger.info('Import extracts: START - Processing {0} regions for database import'.format(len(extracts)))
     imported = {}
     for e, i in zip(extracts, range(len(extracts))):
-        logger.info('Processing extract {0}/{1}: {2}'.format(i+1, len(extracts), e['name']))
         if i == 0:
             cache = '-overwritecache'
         else:
@@ -202,7 +169,7 @@ async def provision_database_async(postgres_dsn, osm_dsn):
         try:
             await cursor.execute('CREATE DATABASE osm')
         except psycopg2.ProgrammingError:
-            logger.warning('Database already existed at "{0}"'.format(postgres_dsn))
+            pass
     async with aiopg.connect(dsn=osm_dsn) as conn:
         cursor = await conn.cursor()
         await cursor.execute('CREATE EXTENSION IF NOT EXISTS postgis')
@@ -238,31 +205,22 @@ def execute_kube_updatemodel_provision_and_import(config, updated):
     kube = SoundscapeKube(None, namespace)
     kube.connect()
 
-    logger.info('Provision and import: START')
-    logger.info('Provisioning databases: START')
     for d in kube.enumerate_databases():
         dbstatus = d['dbstatus']
 
         if dbstatus == None or dbstatus == 'INIT':
             try:
-                logger.info('Provisioning database "{0}" : START'.format(d['name']))
                 kube.set_database_status(d['name'], 'PROVISIONING')
                 dsn = d['dsn2']
                 dsn_init = d['dsn2'].replace('dbname=osm', 'dbname=postgres')
-                logger.info(dsn)
                 provision_database(dsn_init, dsn)
                 kube.set_database_status(d['name'], 'PROVISIONED')
-                logger.info('Provisioning database "{0}": DONE'.format(d['name']))
-            except Exception as e:
-                logger.warning('Provisioning database "{0}: {1}": FAILED'.format(d['name'], e))
+            except Exception:
                 kube.set_database_status(d['name'], 'INIT')
-    logger.info('Provision databases: DONE')
 
     if updated:
-        logger.info('Importing extracts')
         import_extracts(config, osm_extracts, False)
 
-    logger.info('Updating databases')
     for d in kube.enumerate_databases():
         dbstatus = d['dbstatus']
 
@@ -270,18 +228,14 @@ def execute_kube_updatemodel_provision_and_import(config, updated):
             continue
 
         if dbstatus == 'HASMAPDATA' and not updated:
-            logger.info('Updating databases, skipping \'{0}\''.format(d['name']))
             continue
 
         try:
-            logger.info('Importing to "{0}"'.format(d['name']))
             args.dsn = kube.get_url_dsn(d['dsn2']) #+ '?sslmode=require'
             import_write(config, False)
             import_rotate(config, False)
             if config.extradatadir:
-                logger.info('Importing non-OSM data: START')
                 import_non_osm_data(config.extradatadir, d['dsn2'], logger)
-                logger.info('Importing non-OSM data: DONE')
             provision_database_soundscape(d['dsn2'])
             # kubernetes connection may have expired
             retry_count = 5
@@ -293,41 +247,28 @@ def execute_kube_updatemodel_provision_and_import(config, updated):
                     try:
                         kube.set_database_status(d['name'], 'HASMAPDATA')
                         break
-                    except Exception as e:
-                        logger.warning('failed provisioning database "{0}: {1}" retrying'.format(d['name'], e))
-                retry_count -= 1
-            logger.info('imported to "{0}"'.format(d['name']))
-
-        except Exception as e:
-            logger.warning('failed provisioning database "{0}: {1}"'.format(d['name'], e))
-    logger.info('Completed provision and import')
+                    except Exception:
+                        retry_count -= 1
+        except Exception:
+            pass
 
 def execute_kube_sync_deployments(manager, desc):
-    logger.info('Synchronize {0} with databases'.format(desc))
-
     seen_dbs = []
     for db in manager.enumerate_ready_databases():
         seen_dbs.append(db['name'])
 
-        if manager.exist_deployment_for_db(db):
-            logger.info('Deployment {0} for \'{1}\' exists'.format(desc, db['name']))
-        else:
+        if not manager.exist_deployment_for_db(db):
             try:
                 manager.create_deployment_for_db(db)
-                logger.info('Created {0} for \'{1}\''.format(desc, db['name']))
             except Exception:
-                logger.warning('Failed to created {0} for \'{1}\''.format(desc, db['name']))
-    logger.info('Synchronize {0} with databases: DONE'.format(desc))
+                pass
 
     for db in manager.enumerate_deployments():
         if db['name'] not in seen_dbs:
             try:
                 manager.delete_deployment_for_db(db)
-                logger.info('Deployment for \'{0}\' was deleted'.format(db['name']))
             except Exception:
-                logger.warning('Deployment for \'{0}\' failed deletion'.format(db['name']))
-        else:
-            logger.info('Deployment for \'{0}\' is running'.format(db['name']))
+                pass
 
 def execute_kube_sync_tile_services(config):
     start = datetime.utcnow()
@@ -353,20 +294,14 @@ def execute_kube_updatemodel(config):
     initial_import = True
     cycle_count = 0
     
-    logger.info('Starting ingestion loop - delay between cycles: {0} seconds ({1} hours)'.format(config.delay, config.delay/3600))
-    logger.info('Configured regions: {0}'.format([e['name'] for e in osm_extracts]))
-    
     while True:
         cycle_count += 1
         cycle_start = datetime.utcnow()
-        logger.info('=== INGESTION CYCLE {0} START at {1} ==='.format(cycle_count, cycle_start.strftime('%Y-%m-%d %H:%M:%S UTC')))
         
         fetch_delay = config.delay
         updated = fetch_extracts(config, osm_extracts)
         if config.always_update:
             updated = True
-
-        logger.info('Data update status: {0}'.format('NEW DATA AVAILABLE' if updated else 'NO UPDATES DETECTED'))
 
         while fetch_delay >= 0:
             execute_kube_updatemodel_provision_and_import(config, updated or initial_import)
@@ -375,17 +310,10 @@ def execute_kube_updatemodel(config):
 
             if config.dynamic_db:
                 execute_kube_sync_database_services(config)
-
-            if fetch_delay > 0:
-                next_check = datetime.utcnow() + datetime.timedelta(seconds=min(rescan_delay, fetch_delay))
-                logger.info('Waiting {0} seconds until next check (next check at {1})'.format(min(rescan_delay, fetch_delay), next_check.strftime('%Y-%m-%d %H:%M:%S UTC')))
                 
             time.sleep(rescan_delay)
             fetch_delay -= rescan_delay
             
-        cycle_end = datetime.utcnow()
-        cycle_duration = cycle_end - cycle_start
-        logger.info('=== INGESTION CYCLE {0} COMPLETED in {1} ==='.format(cycle_count, cycle_duration))
         initial_import = False
 
 def telemetry_log(event_name, start, end, extra=None):
@@ -407,12 +335,8 @@ if args.where or args.sourceupdate:
 
 if args.where:
     logger = logging.getLogger()
-    logger.info('Filtering regions to process: {0}'.format(args.where))
     original_count = len(osm_extracts)
     osm_extracts = list(filter(lambda e: e['name'] in args.where, osm_extracts))
-    logger.info('Available regions: {0} -> Selected regions: {1}'.format(original_count, len(osm_extracts)))
-    for extract in osm_extracts:
-        logger.info('Region configured: {0} -> {1}'.format(extract['name'], extract['url']))
 
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s:%(levelname)s:%(message)s')
@@ -426,5 +350,4 @@ try:
     execute_kube_updatemodel(args)
 
 finally:
-    print('terminating logging')
     logging.shutdown()
