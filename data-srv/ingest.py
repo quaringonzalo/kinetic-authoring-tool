@@ -86,11 +86,13 @@ def fetch_extract(config, url):
 
     try:
         # Use subprocess with DEVNULL to completely suppress wget output
+        # -nv: no verbose, -N: timestamp checking, -q: quiet mode
         with open(os.devnull, 'w') as devnull:
-            subprocess.run(['wget', '-N', '-q', url, '--directory-prefix', config.pbfdir], 
-                          stdout=devnull, stderr=devnull, check=True)
+            subprocess.run(['wget', '-nv', '-N', '-q', '--no-progress', '--no-verbose', url, '--directory-prefix', config.pbfdir], 
+                          stdout=devnull, stderr=devnull, check=True, env={"PYTHONUNBUFFERED": "0"})
         after_token = os.path.getmtime(local_pbf)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Error downloading {url}: {str(e)}")
         raise
 
     if before_token == after_token:
@@ -99,23 +101,30 @@ def fetch_extract(config, url):
         return True
 
 def fetch_extracts(config, extracts):
+    logger.info('Fetch extracts: START')
     start = datetime.utcnow()
     fetched = False
     for i, e in enumerate(extracts, 1):
-        fetched_extract = fetch_extract(config, e['url'])
-        if fetched_extract:
-            pass
-        else:
-            pass
-        fetched = fetched or fetched_extract
+        logger.info(f"Downloading extract {i}/{len(extracts)}: {e['name']} from {e['url']}")
+        try:
+            fetched_extract = fetch_extract(config, e['url'])
+            if fetched_extract:
+                logger.info(f"Extract {e['name']} was updated")
+            else:
+                logger.info(f"Extract {e['name']} was already up to date")
+            fetched = fetched or fetched_extract
+        except Exception as e:
+            logger.error(f"Failed to download extract: {str(e)}")
     elapsed = datetime.utcnow() - start
     end = datetime.utcnow()
     telemetry_log('fetch_extracts', start, end)
+    logger.info(f'Fetch extracts: DONE (elapsed time: {elapsed})')
     return fetched
 
 def import_extract(config, extract, incremental):
     pbf = os.path.join(config.pbfdir, os.path.basename(extract['url']))
     start = datetime.utcnow()
+    logger.info('Import of {0}: START (region: {1})'.format(pbf, extract['name']))
     
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-read', pbf, '-cachedir', config.cachedir]
     if incremental:
@@ -124,8 +133,10 @@ def import_extract(config, extract, incremental):
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_extract', start, end)
+    logger.info('Import of {0}: DONE (region: {1})'.format(pbf, extract['name']))
 
 def import_write(config, incremental):
+    logger.info('Writing OSM tables: START')
     start = datetime.utcnow()
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-write', '-connection', config.dsn, '-srid', '4326', '-cachedir', config.cachedir]
     if incremental:
@@ -133,8 +144,10 @@ def import_write(config, incremental):
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_write', start, end, {'dsn': config.dsn})
+    logger.info('Writing OSM tables: DONE')
 
 def import_rotate(config, incremental):
+    logger.info('Table rotation: START')
     start = datetime.utcnow()
     imposm_args = [config.imposm, 'import', '-mapping', config.mapping, '-connection', config.dsn, '-srid', '4326', '-deployproduction', '-cachedir', config.cachedir]
 
@@ -143,8 +156,10 @@ def import_rotate(config, incremental):
     subprocess.run(imposm_args, check=True)
     end = datetime.utcnow()
     telemetry_log('import_rotate', start, end, {'dsn': config.dsn})
+    logger.info('Table rotation: DONE')
 
 def import_extracts(config, extracts, incremental):
+    logger.info('Import extracts: START - Processing {0} regions for database import'.format(len(extracts)))
     imported = {}
     for e, i in zip(extracts, range(len(extracts))):
         if i == 0:
@@ -156,7 +171,8 @@ def import_extracts(config, extracts, incremental):
         if pbf in imported:
             continue
         imported[pbf] = True
-        import_extract(config, pbf, cache, incremental)
+        import_extract(config, e, incremental)
+    logger.info('Import extracts: DONE')
 
 def import_extracts_and_write(config, extracts, incremental):
     import_extracts(config, extracts, incremental)
@@ -169,7 +185,7 @@ async def provision_database_async(postgres_dsn, osm_dsn):
         try:
             await cursor.execute('CREATE DATABASE osm')
         except psycopg2.ProgrammingError:
-            pass
+            logger.warning('Database already existed at "{0}"'.format(postgres_dsn))
     async with aiopg.connect(dsn=osm_dsn) as conn:
         cursor = await conn.cursor()
         await cursor.execute('CREATE EXTENSION IF NOT EXISTS postgis')
@@ -201,26 +217,35 @@ def provision_database_soundscape(osm_dsn):
     loop.run_until_complete(provision_database_soundscape_async(osm_dsn))
 
 def execute_kube_updatemodel_provision_and_import(config, updated):
+    logger.info('Provision and import: START')
     namespace = os.environ['NAMESPACE']
     kube = SoundscapeKube(None, namespace)
     kube.connect()
 
+    logger.info('Provisioning databases: START')
     for d in kube.enumerate_databases():
         dbstatus = d['dbstatus']
 
         if dbstatus == None or dbstatus == 'INIT':
             try:
+                logger.info('Provisioning database "{0}": START'.format(d['name']))
                 kube.set_database_status(d['name'], 'PROVISIONING')
                 dsn = d['dsn2']
                 dsn_init = d['dsn2'].replace('dbname=osm', 'dbname=postgres')
                 provision_database(dsn_init, dsn)
                 kube.set_database_status(d['name'], 'PROVISIONED')
-            except Exception:
+                logger.info('Provisioning database "{0}": DONE'.format(d['name']))
+            except Exception as e:
+                logger.warning('Provisioning database "{0}": FAILED - {1}'.format(d['name'], str(e)))
                 kube.set_database_status(d['name'], 'INIT')
+    logger.info('Provisioning databases: DONE')
 
     if updated:
+        logger.info('Importing extracts: START')
         import_extracts(config, osm_extracts, False)
+        logger.info('Importing extracts: DONE')
 
+    logger.info('Updating databases: START')
     for d in kube.enumerate_databases():
         dbstatus = d['dbstatus']
 
@@ -228,14 +253,18 @@ def execute_kube_updatemodel_provision_and_import(config, updated):
             continue
 
         if dbstatus == 'HASMAPDATA' and not updated:
+            logger.info('Skipping database "{0}" - already has map data and no updates'.format(d['name']))
             continue
 
         try:
+            logger.info('Processing database "{0}": START'.format(d['name']))
             args.dsn = kube.get_url_dsn(d['dsn2']) #+ '?sslmode=require'
             import_write(config, False)
             import_rotate(config, False)
             if config.extradatadir:
+                logger.info('Importing non-OSM data: START')
                 import_non_osm_data(config.extradatadir, d['dsn2'], logger)
+                logger.info('Importing non-OSM data: DONE')
             provision_database_soundscape(d['dsn2'])
             # kubernetes connection may have expired
             retry_count = 5
@@ -247,12 +276,17 @@ def execute_kube_updatemodel_provision_and_import(config, updated):
                     try:
                         kube.set_database_status(d['name'], 'HASMAPDATA')
                         break
-                    except Exception:
+                    except Exception as e:
+                        logger.warning('Failed provisioning database "{0}" - retry {1}: {2}'.format(d['name'], 5-retry_count, str(e)))
                         retry_count -= 1
-        except Exception:
-            pass
+            logger.info('Processing database "{0}": DONE'.format(d['name']))
+        except Exception as e:
+            logger.warning('Failed processing database "{0}": {1}'.format(d['name'], str(e)))
+    logger.info('Updating databases: DONE')
+    logger.info('Provision and import: DONE')
 
 def execute_kube_sync_deployments(manager, desc):
+    logger.info('Synchronize {0} with databases: START'.format(desc))
     seen_dbs = []
     for db in manager.enumerate_ready_databases():
         seen_dbs.append(db['name'])
@@ -260,15 +294,18 @@ def execute_kube_sync_deployments(manager, desc):
         if not manager.exist_deployment_for_db(db):
             try:
                 manager.create_deployment_for_db(db)
-            except Exception:
-                pass
+                logger.info('Created {0} for "{1}"'.format(desc, db['name']))
+            except Exception as e:
+                logger.warning('Failed to create {0} for "{1}": {2}'.format(desc, db['name'], str(e)))
 
     for db in manager.enumerate_deployments():
         if db['name'] not in seen_dbs:
             try:
                 manager.delete_deployment_for_db(db)
-            except Exception:
-                pass
+                logger.info('Deleted {0} for "{1}"'.format(desc, db['name']))
+            except Exception as e:
+                logger.warning('Failed to delete {0} for "{1}": {2}'.format(desc, db['name'], str(e)))
+    logger.info('Synchronize {0} with databases: DONE'.format(desc))
 
 def execute_kube_sync_tile_services(config):
     start = datetime.utcnow()
@@ -287,6 +324,7 @@ def execute_kube_sync_database_services(config):
 def execute_kube_updatemodel(config):
     # N.B. launch tile services and metrics for already functioning databases
     #      since import of new data can/will take a while
+    logger.info('Starting ingestion service')
     if config.dynamic_db:
         execute_kube_sync_database_services(config)
 
@@ -294,9 +332,14 @@ def execute_kube_updatemodel(config):
     initial_import = True
     cycle_count = 0
     
+    logger.info('Starting ingestion loop - delay between cycles: {0} seconds ({1:.2f} hours)'.format(config.delay, config.delay/3600))
+    if args.where:
+        logger.info('Configured regions: {0}'.format([e['name'] for e in osm_extracts]))
+    
     while True:
         cycle_count += 1
         cycle_start = datetime.utcnow()
+        logger.info('=== INGESTION CYCLE {0} START ==='.format(cycle_count))
         
         fetch_delay = config.delay
         updated = fetch_extracts(config, osm_extracts)
@@ -310,10 +353,16 @@ def execute_kube_updatemodel(config):
 
             if config.dynamic_db:
                 execute_kube_sync_database_services(config)
+            
+            if fetch_delay > 0:
+                logger.info('Waiting {0} seconds until next check'.format(min(rescan_delay, fetch_delay)))
                 
             time.sleep(rescan_delay)
             fetch_delay -= rescan_delay
-            
+        
+        cycle_end = datetime.utcnow()
+        cycle_duration = cycle_end - cycle_start
+        logger.info('=== INGESTION CYCLE {0} COMPLETED in {1} ==='.format(cycle_count, cycle_duration))
         initial_import = False
 
 def telemetry_log(event_name, start, end, extra=None):
@@ -347,7 +396,9 @@ if args.telemetry:
     start_http_server(8000)
 
 try:
+    logger.info('Starting ingestion engine')
     execute_kube_updatemodel(args)
 
 finally:
+    logger.info('Terminating ingestion engine')
     logging.shutdown()
